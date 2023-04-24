@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('tasks', function (Blueprint $table) {
             $table->id();
-            $table->string('text', 250);
+            $table->string('text', 250)->index('text');
             $table->tinyInteger('status')->default(TaskStatuses::CREATED->value);
             $table->timestamps();
         });

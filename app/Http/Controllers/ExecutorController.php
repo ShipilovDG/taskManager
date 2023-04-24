@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Enums\TaskStatuses;
 use App\Http\Requests\ExecutorsRequest;
+use App\Http\Services\ExecutorService;
 use App\Models\Executor;
 use App\Models\Task;
 use Illuminate\Database\QueryException;
@@ -14,6 +15,10 @@ use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 
 class ExecutorController extends Controller
 {
+    public function __construct(private readonly ExecutorService $service)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -25,19 +30,7 @@ class ExecutorController extends Controller
             'email'   => 'email',
         ]);
 
-        $tasks = Task::all()->where(
-            'name',
-            'LIKE',
-            "%{$request->get('name')}%"
-        )->where(
-            'surname',
-            'LIKE',
-            "%{$request->get('surname')}%"
-        )->where(
-            'email',
-            'LIKE',
-            "%{$request->get('email')}%"
-        );
+        $tasks = $this->service->index($request);
 
         return new JsonResponse(['tasks' => $tasks->toArray()]);
     }
@@ -51,7 +44,7 @@ class ExecutorController extends Controller
         $code    = ResponseAlias::HTTP_CREATED;
         $data    = $request->validated();
         try {
-            $executor = Executor::create($data);
+            $executor = $this->service->store($data);
         }
         catch (QueryException $exception) {
             $success = false;
@@ -70,13 +63,8 @@ class ExecutorController extends Controller
      */
     public function update(ExecutorsRequest $request)
     {
-        $data              = $request->validated();
-        $executor          = Executor::findOrFail($data['id']);
-        $executor->name    = $data['name'] ?? '';
-        $executor->surname = $data['surname'] ?? '';
-        $executor->phone   = $data['phone'] ?? '';
-        $executor->email   = $data['email'] ?? '';
-        $executor->save();
+        $data     = $request->validated();
+        $executor = $this->service->update($data);
 
         return new JsonResponse($executor);
     }
@@ -86,8 +74,23 @@ class ExecutorController extends Controller
      */
     public function destroy(Executor $executor)
     {
-        $executor->delete();
+        $this->service->destroy($executor);
 
         return new Response(status: 204);
+    }
+
+    public function attachTasks(Request $request)
+    {
+        $request->validate([
+            'executorId' => 'int',
+            'taskIds'    => 'array',
+            'taskIds.*'  => 'int',
+        ]);
+        $executor = Executor::findOrFail($request->get('executorId'));
+        foreach ($request->get('tasksIds') as $item) {
+            $executor->tasks()->attach($item);
+        }
+
+        return new JsonResponse(['success' => true]);
     }
 }

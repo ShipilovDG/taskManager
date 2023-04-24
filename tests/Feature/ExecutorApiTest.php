@@ -68,4 +68,28 @@ class ExecutorApiTest extends \Tests\TestCase
         $response = $this->delete("/api/executors/$id");
         $response->assertStatus(204);
     }
+
+    public function test_attach_task_to_executor(): void
+    {
+        $data = [
+            'name'    => 'Сделать домашку',
+            'surname' => 'Сделать домашку',
+            'email'   => 'asd@aasd.com',
+        ];
+
+        $response   = $this->post('/api/executors', $data);
+        $executorId = $response->offsetGet('object')['id'];
+        $ids        = [];
+        $data       = [
+            'text' => 'Сделать домашку',
+        ];
+
+        $ids[]    = $this->post('/api/tasks', $data)->offsetGet('object')['id'];
+        $ids[]    = $this->post('/api/tasks', $data)->offsetGet('object')['id'];
+        $ids[]    = $this->post('/api/tasks', $data)->offsetGet('object')['id'];
+        $data     = ['tasksIds' => $ids, 'executorId' => $executorId];
+        $response = $this->post('/api/executors/attach', $data);
+
+        $response->assertStatus(200);
+    }
 }

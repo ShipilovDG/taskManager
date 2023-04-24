@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Enums\TaskStatuses;
 use App\Http\Requests\TaskRequest;
+use App\Http\Services\TaskService;
 use App\Models\Task;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -13,6 +14,10 @@ use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 
 class TaskController extends Controller
 {
+    public function __construct(private readonly TaskService $service)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -21,13 +26,11 @@ class TaskController extends Controller
         $request->validate([
             'status' => 'in:' . implode(',', TaskStatuses::all()),
             'text'   => 'string|max:250',
+            'ids'    => 'array',
+            'ids.*'  => 'integer',
         ]);
 
-        $tasks = Task::all()->where(
-            'text',
-            'LIKE',
-            "%{$request->get('id')}%"
-        )->where('status', '=', $request->get('status'));
+        $tasks = $this->service->index($request);
 
         return new JsonResponse(['tasks' => $tasks->toArray()]);
     }
@@ -41,7 +44,7 @@ class TaskController extends Controller
         $code    = ResponseAlias::HTTP_CREATED;
         $data    = $request->validated();
         try {
-            $task = Task::create($data);
+            $task = $this->service->store($data);
         }
         catch (QueryException $exception) {
             $success = false;
@@ -50,7 +53,7 @@ class TaskController extends Controller
 
         return new JsonResponse([
             'success' => $success,
-            'object' => $task ?? null,
+            'object'  => $task ?? null,
         ], $code);
     }
 
@@ -59,11 +62,8 @@ class TaskController extends Controller
      */
     public function update(TaskRequest $request)
     {
-        $data         = $request->validated();
-        $task         = Task::findOrFail($data['id']);
-        $task->text   = $data['text'];
-        $task->status = $data['status'];
-        $task->save();
+        $data = $request->validated();
+        $task = $this->service->update($data);
 
         return new JsonResponse($task);
     }
@@ -73,7 +73,7 @@ class TaskController extends Controller
      */
     public function destroy(Task $task)
     {
-        $task->delete();
+        $this->service->destroy($task);
 
         return new Response(status: 204);
     }

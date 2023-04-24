@@ -21,3 +21,4 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 Route::apiResource('/tasks', TaskController::class);
 Route::apiResource('/executors', ExecutorController::class);
+Route::post('/executors/attach', [ExecutorController::class, 'attachTasks']);
